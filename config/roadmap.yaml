@@ -1,0 +1,132 @@
+# ==============================================================================
+# Master Technical Roadmap DAG (Directed Acyclic Graph)
+# Domain: AI + Data Engineering / Intelligent Software Development
+# ==============================================================================
+
+version: "1.0.0"
+description: "Long-term autonomous development roadmap from scientific computing to production MLOps"
+
+tracks:
+  - id: "track_data_science"
+    title: "Data Science & Statistical Computing"
+    difficulty: "BEGINNER_TO_INTERMEDIATE"
+    prerequisites: []
+    projects:
+      - id: "proj_ds_01_feature_eng"
+        title: "Modular Feature Engineering & Data Profiler"
+        description: "Production-grade preprocessing engine with outlier detection, scaling, and distribution analysis"
+        milestones:
+          - id: "ms_ds_01_01"
+            title: "Vectorized Outlier Detection"
+            description: "Implement robust z-score, modified z-score, and IQR outlier detection transformers"
+            required_tests: ["test_z_score_detector", "test_iqr_detector", "test_edge_cases_empty_nan"]
+          - id: "ms_ds_01_02"
+            title: "Missing Value Imputation Strategies"
+            description: "Custom scikit-learn compatible imputers with KNN and distribution-preserving sampling"
+            required_tests: ["test_knn_imputer_mechanics", "test_distribution_preservation"]
+          - id: "ms_ds_01_03"
+            title: "Automated Data Profiler & Distribution Reporter"
+            description: "Statistical summary generator with skewness, kurtosis, and hypothesis testing checks"
+            required_tests: ["test_profiler_summary", "test_distribution_normality_tests"]
+
+  - id: "track_machine_learning"
+    title: "Machine Learning Engineering"
+    difficulty: "INTERMEDIATE"
+    prerequisites: ["track_data_science"]
+    projects:
+      - id: "proj_ml_01_prediction_engine"
+        title: "End-to-End Predictive Modeling Engine"
+        description: "Ensemble classification and regression pipelines with automated cross-validation and tuning"
+        milestones:
+          - id: "ms_ml_01_01"
+            title: "Custom Scikit-Learn Estimator & Pipeline Assembly"
+            description: "Modular estimator with automated hyperparameter optimization using Bayesian search"
+            required_tests: ["test_estimator_fit_predict", "test_pipeline_compatibility"]
+          - id: "ms_ml_01_02"
+            title: "Cross-Validation & Model Evaluation Suite"
+            description: "Stratified k-fold cross-validation with ROC-AUC, precision-recall curve metrics and calibration"
+            required_tests: ["test_cv_evaluator", "test_metric_calibration"]
+          - id: "ms_ml_01_03"
+            title: "Feature Importance & Model Explainability"
+            description: "Permutation feature importance and SHAP-compatible explanation generator"
+            required_tests: ["test_permutation_importance", "test_explainability_output"]
+
+  - id: "track_deep_learning"
+    title: "Deep Learning Architectures"
+    difficulty: "INTERMEDIATE_TO_ADVANCED"
+    prerequisites: ["track_machine_learning"]
+    projects:
+      - id: "proj_dl_01_neural_blocks"
+        title: "Modular Deep Learning Framework"
+        description: "Clean neural building blocks, custom autograd components, and training harnesses"
+        milestones:
+          - id: "ms_dl_01_01"
+            title: "Modular Tensor Operations & Activation Kernels"
+            description: "Vectorized forward/backward passes for modern activations (Swish, GELU, LeakyReLU)"
+            required_tests: ["test_activation_gradients", "test_numerical_stability"]
+          - id: "ms_dl_01_02"
+            title: "Residual Network & Attention Block Synthesis"
+            description: "Multi-head scaled dot-product attention block with causal masking"
+            required_tests: ["test_multihead_attention_shape", "test_causal_masking"]
+          - id: "ms_dl_01_03"
+            title: "Production Training Loop Harness"
+            description: "Gradient accumulation, learning rate warm-up schedules, and checkpoint manager"
+            required_tests: ["test_lr_scheduler_decay", "test_checkpoint_serialization"]
+
+  - id: "track_generative_ai"
+    title: "Generative AI, LLMs & Retrieval-Augmented Generation"
+    difficulty: "ADVANCED"
+    prerequisites: ["track_deep_learning"]
+    projects:
+      - id: "proj_genai_01_rag_engine"
+        title: "Production-Grade RAG & Vector Engine"
+        description: "High-accuracy semantic search, hierarchical chunking, vector indexing, and hybrid reranking"
+        milestones:
+          - id: "ms_genai_01_01"
+            title: "Hierarchical Document Chunking & Tokenizer"
+            description: "Recursive semantic boundary chunker preserving header metadata and context windows"
+            required_tests: ["test_recursive_chunking", "test_token_boundary_preservation"]
+          - id: "ms_genai_01_02"
+            title: "In-Memory Vector Index & Cosine Similarity Engine"
+            description: "Vector database abstraction with HNSW-like approximate nearest neighbor search"
+            required_tests: ["test_vector_similarity_exact", "test_ann_index_query"]
+          - id: "ms_genai_01_03"
+            title: "Hybrid Retrieval & Reciprocal Rank Fusion"
+            description: "Combining BM25 keyword scoring with dense vector retrieval using RRF reranking"
+            required_tests: ["test_hybrid_retrieval_rrf", "test_reranking_accuracy"]
+
+  - id: "track_data_engineering"
+    title: "Data Engineering & Pipeline Infrastructure"
+    difficulty: "ADVANCED"
+    prerequisites: ["track_data_science"]
+    projects:
+      - id: "proj_de_01_pipeline_core"
+        title: "High-Throughput Batch & Stream Processing Engine"
+        description: "Schema-contract validated ETL/ELT pipelines with columnar storage (Parquet/DuckDB)"
+        milestones:
+          - id: "ms_de_01_01"
+            title: "Schema Contract & Data Validation Harness"
+            description: "Declarative schema contracts with strict type, range, and uniqueness validation"
+            required_tests: ["test_schema_contract_valid", "test_schema_contract_violations"]
+          - id: "ms_de_01_02"
+            title: "Streaming File Ingestion & Parquet Partitioning"
+            description: "High-throughput chunked ingestion pipeline with partitioned columnar writes"
+            required_tests: ["test_parquet_partitioning", "test_streaming_throughput"]
+
+  - id: "track_mlops_deployment"
+    title: "MLOps, Model Serving & Deployment"
+    difficulty: "PRODUCTION"
+    prerequisites: ["track_machine_learning", "track_data_engineering"]
+    projects:
+      - id: "proj_mlops_01_serving_api"
+        title: "Production Model Inference Service"
+        description: "FastAPI inference microservice with concept drift monitoring and Prometheus metrics"
+        milestones:
+          - id: "ms_mlops_01_01"
+            title: "High-Performance Inference API Specification"
+            description: "FastAPI REST API with request batching, Pydantic validation, and health checks"
+            required_tests: ["test_inference_endpoint", "test_batch_request_handling"]
+          - id: "ms_mlops_01_02"
+            title: "Real-Time Data Drift & Performance Monitor"
+            description: "Kolmogorov-Smirnov and Population Stability Index (PSI) drift monitoring engine"
+            required_tests: ["test_psi_drift_detection", "test_ks_statistical_drift"]

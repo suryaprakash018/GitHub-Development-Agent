@@ -1,0 +1,70 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets and environment variables
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+
+# Operational and runtime files
+logs/
+*.log
+.agent.lock
+*.tmp
+*.bak
+
+# Databases and local persistence
+*.db
+*.sqlite
+*.sqlite3
+state/*.db
+state/*.json
+state/*.json.tmp
+state/*.bak
+state/runs/
+!state/.gitkeep
+
+# Test and linting artifacts
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

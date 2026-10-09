@@ -1,0 +1,46 @@
+# ==============================================================================
+# Autonomous AI + Data Development Agent Configuration
+# ==============================================================================
+
+system:
+  name: "Autonomous AI + Data Development Agent"
+  version: "0.1.0"
+  niche: "AI + Data Engineering / Intelligent Software Development"
+
+operational_mode:
+  # DRY_RUN: When true, agent will plan, generate code, test, and evaluate,
+  # but will NOT commit or push to Git.
+  dry_run: true
+  auto_commit: false
+  auto_push: false
+  require_tests: true
+  max_retries: 5
+
+ai:
+  provider: "gemini"
+  primary_model: "gemini-3.8-flash"
+  reasoning_model: null
+  thinking_level: null
+  max_tokens: 8192
+  request_timeout_seconds: 60
+
+repository:
+  # Target repository must be completely separate from GitHub-Development-Agent.
+  # Can also be set via TARGET_REPOSITORY_PATH environment variable.
+  target_path: ""
+  default_branch: "main"
+  remote_name: "origin"
+
+quality_gate:
+  minimum_test_coverage_pct: 80.0
+  minimum_lines_changed: 15
+  maximum_lines_changed: 500
+  maximum_files_changed: 10
+  enforce_clean_lint: true
+  enforce_type_hints: true
+  enforce_semantic_utility: true
+
+scheduling:
+  frequency: "daily"
+  preferred_time: "22:00"
+  timezone: "local"
