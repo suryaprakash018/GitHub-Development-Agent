@@ -80,15 +80,24 @@ def cmd_verify(args: argparse.Namespace) -> int:
     remote_res = checker.check_git_remote_accessibility()
     print(f" [{remote_res.status}] Git Remote Accessibility: {remote_res.message}")
 
-    # Check 5: Google Gemini API Key & Connectivity
-    gemini_key = config.ai.gemini_api_key
-    if gemini_key and gemini_key.strip() != "":
-        masked_key = gemini_key[:4] + "..." + gemini_key[-4:] if len(gemini_key) > 8 else "***"
-        print(f" [PASS] Gemini API Key: Configured ({masked_key})")
-        conn_res = checker.check_gemini_api_connectivity()
-        print(f" [{conn_res.status}] Gemini API Connectivity: {conn_res.message}")
+    # Check 5: Active AI Provider Key & Connectivity
+    active_provider = config.ai.provider.lower()
+    if active_provider == "groq":
+        groq_key = config.ai.groq_api_key
+        if groq_key and groq_key.strip() != "":
+            print(" [PASS] Groq API Key: Configured")
+            conn_res = checker.check_groq_api_connectivity()
+            print(f" [{conn_res.status}] Groq API Connectivity: {conn_res.message}")
+        else:
+            print(" [WARN] Groq API Key: Not set in .env or environment (GROQ_API_KEY)")
     else:
-        print(" [WARN] Gemini API Key: Not set in .env or environment (GEMINI_API_KEY)")
+        gemini_key = config.ai.gemini_api_key
+        if gemini_key and gemini_key.strip() != "":
+            print(" [PASS] Gemini API Key: Configured")
+            conn_res = checker.check_gemini_api_connectivity()
+            print(f" [{conn_res.status}] Gemini API Connectivity: {conn_res.message}")
+        else:
+            print(" [WARN] Gemini API Key: Not set in .env or environment (GEMINI_API_KEY)")
 
     # Check 6: Operational Safety Flags
     print("-" * 70)

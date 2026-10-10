@@ -33,6 +33,8 @@ class AIConfig(BaseModel):
     max_tokens: int = 8192
     request_timeout_seconds: int = 60
     gemini_api_key: str | None = None
+    groq_api_key: str | None = None
+    groq_model: str | None = None
 
 
 class RepositoryConfig(BaseModel):
@@ -68,9 +70,12 @@ class AppConfig(BaseSettings):
     scheduling: SchedulingConfig = Field(default_factory=SchedulingConfig)
 
     # Direct environment variable bindings
+    ai_provider: str | None = Field(default=None, alias="AI_PROVIDER")
     target_repository_path: str | None = Field(default=None, alias="TARGET_REPOSITORY_PATH")
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     gemini_model: str | None = Field(default=None, alias="GEMINI_MODEL")
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    groq_model: str | None = Field(default=None, alias="GROQ_MODEL")
     dry_run: bool | None = Field(default=None, alias="DRY_RUN")
     auto_commit: bool | None = Field(default=None, alias="AUTO_COMMIT")
     auto_push: bool | None = Field(default=None, alias="AUTO_PUSH")
@@ -86,12 +91,18 @@ class AppConfig(BaseSettings):
 
     def model_post_init(self, __context: Any) -> None:
         """Apply environment variable overrides onto nested configuration objects."""
+        if self.ai_provider:
+            self.ai.provider = self.ai_provider.strip().lower()
         if self.target_repository_path:
             self.repository.target_path = self.target_repository_path
         if self.gemini_api_key:
             self.ai.gemini_api_key = self.gemini_api_key
         if self.gemini_model:
             self.ai.primary_model = self.gemini_model
+        if self.groq_api_key:
+            self.ai.groq_api_key = self.groq_api_key
+        if self.groq_model:
+            self.ai.groq_model = self.groq_model
         if self.thinking_level:
             self.ai.thinking_level = self.thinking_level
         if self.dry_run is not None:
@@ -102,6 +113,15 @@ class AppConfig(BaseSettings):
             self.operational_mode.auto_push = self.auto_push
         if self.target_branch:
             self.repository.default_branch = self.target_branch
+
+    def is_llm_configured(self) -> bool:
+        """Checks whether the currently active LLM provider has its API key configured."""
+        provider = self.ai.provider.lower()
+        if provider == "gemini":
+            return bool(self.ai.gemini_api_key and self.ai.gemini_api_key.strip())
+        elif provider == "groq":
+            return bool(self.ai.groq_api_key and self.ai.groq_api_key.strip())
+        return False
 
     def get_validated_target_path(self) -> Path:
         """Returns the canonical target repository path after verifying decoupled security rules."""

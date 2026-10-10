@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from agent.core.config import AppConfig
 from agent.core.exceptions import LLMProviderError
-from agent.llm import GeminiProvider, get_llm_provider
+from agent.llm import GeminiProvider, GroqProvider, get_llm_provider
 
 
 class SampleTaskPlan(BaseModel):
@@ -65,8 +65,10 @@ def test_gemini_provider_custom_model():
     assert provider.model_name == "gemini-custom-model"
 
 
-def test_get_llm_provider_wires_model_from_config():
+def test_get_llm_provider_wires_model_from_config(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
     config = AppConfig()
+    config.ai.provider = "gemini"
     config.ai.primary_model = "gemini-3.8-flash"
     config.ai.thinking_level = "LOW"
     config.ai.gemini_api_key = "dummy_mock_key"
@@ -207,3 +209,178 @@ def test_gemini_provider_quota_error_redacts_credentials():
     err_msg = str(exc_info.value)
     assert fake_key not in err_msg
     assert "[REDACTED_SECRET]" in err_msg
+
+
+def test_groq_missing_api_key_raises_error(monkeypatch):
+    """Confirms error when GROQ_API_KEY is not configured."""
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(LLMProviderError, match="GROQ_API_KEY is not configured"):
+        GroqProvider(api_key="", model_name="llama-3.3-70b-versatile")
+
+
+def test_groq_missing_model_raises_error(monkeypatch):
+    """Confirms error when model is not configured."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    with pytest.raises(LLMProviderError, match="GROQ_MODEL is not configured"):
+        GroqProvider(api_key="gsk_mock_dummy_key", model_name="")
+
+
+def test_groq_mock_text_generation(monkeypatch):
+    """Confirms successful text generation with Groq."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile")
+    mock_choice = MagicMock()
+    mock_choice.message.content = "def add(a, b): return a + b"
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    provider.client = MagicMock()
+    provider.client.chat.completions.create.return_value = mock_response
+
+    res = provider.generate_text(prompt="Write add function")
+    assert res == "def add(a, b): return a + b"
+
+
+def test_groq_mock_structured_generation(monkeypatch):
+    """Confirms successful structured generation with schema validation on Groq."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile")
+    mock_choice = MagicMock()
+    mock_choice.message.content = (
+        '{"task_id": "groq_01", "summary": "Build Groq module", "target_files": ["groq.py"]}'
+    )
+    mock_response = MagicMock()
+    mock_response.choices = [mock_choice]
+    provider.client = MagicMock()
+    provider.client.chat.completions.create.return_value = mock_response
+
+    plan = provider.generate_structured(prompt="Create plan", schema=SampleTaskPlan)
+    assert isinstance(plan, SampleTaskPlan)
+    assert plan.task_id == "groq_01"
+    assert plan.summary == "Build Groq module"
+    assert plan.target_files == ["groq.py"]
+
+
+def test_groq_provider_daily_quota_exhaustion_fails_fast_structured(monkeypatch):
+    """Confirms Groq daily quota exhaustion fails immediately without retrying."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(
+        api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile", max_retries=5
+    )
+    provider.client = MagicMock()
+    quota_err = Exception("429 Rate limit reached for model on requests per day (RPD)")
+    provider.client.chat.completions.create.side_effect = quota_err
+
+    with pytest.raises(LLMProviderError, match="Groq daily quota exhausted"):
+        provider.generate_structured(prompt="hello", schema=SampleTaskPlan)
+
+    assert provider.client.chat.completions.create.call_count == 1
+
+
+def test_groq_provider_daily_quota_exhaustion_fails_fast_text(monkeypatch):
+    """Confirms Groq daily quota exhaustion fails immediately in text generation."""
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(
+        api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile", max_retries=5
+    )
+    provider.client = MagicMock()
+    quota_err = Exception("429 Rate limit reached: daily quota limit exceeded")
+    provider.client.chat.completions.create.side_effect = quota_err
+
+    with pytest.raises(LLMProviderError, match="Groq daily quota exhausted"):
+        provider.generate_text(prompt="hello")
+
+    assert provider.client.chat.completions.create.call_count == 1
+
+
+def test_groq_provider_transient_rate_limit_retries_and_succeeds(monkeypatch):
+    """Confirms Groq transient TPM rate limits retry with backoff and succeed."""
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(
+        api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile", max_retries=3
+    )
+    provider.client = MagicMock()
+
+    transient_err = Exception(
+        "429 Rate limit reached on tokens per minute (TPM). Please try again in 1.5s"
+    )
+    mock_choice = MagicMock()
+    mock_choice.message.content = (
+        '{"task_id": "tpm_01", "summary": "TPM retry", "target_files": []}'
+    )
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_choice]
+
+    provider.client.chat.completions.create.side_effect = [transient_err, mock_resp]
+    res = provider.generate_structured(prompt="hello", schema=SampleTaskPlan)
+    assert res.task_id == "tpm_01"
+    assert provider.client.chat.completions.create.call_count == 2
+
+
+def test_groq_provider_transient_503_retries_and_succeeds(monkeypatch):
+    """Confirms Groq transient 503 service unavailable retries and succeeds."""
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_mock_dummy_key")
+    provider = GroqProvider(
+        api_key="gsk_mock_dummy_key", model_name="llama-3.3-70b-versatile", max_retries=3
+    )
+    provider.client = MagicMock()
+
+    srv_err = Exception("503 Service Unavailable")
+    mock_choice = MagicMock()
+    mock_choice.message.content = "Recovered text"
+    mock_resp = MagicMock()
+    mock_resp.choices = [mock_choice]
+
+    provider.client.chat.completions.create.side_effect = [srv_err, mock_resp]
+    res = provider.generate_text(prompt="hello")
+    assert res == "Recovered text"
+    assert provider.client.chat.completions.create.call_count == 2
+
+
+def test_groq_provider_quota_error_redacts_credentials():
+    """Confirms sensitive Groq API keys are redacted from errors and logs."""
+    fake_groq_key = "gsk_1234567890abcdefghijklmnopqrstuvwxyz12345678"
+    provider = GroqProvider(
+        api_key=fake_groq_key, model_name="llama-3.3-70b-versatile", max_retries=3
+    )
+    provider.client = MagicMock()
+
+    err_with_key = Exception(f"429 Rate limit reached on requests per day with key={fake_groq_key}")
+    provider.client.chat.completions.create.side_effect = err_with_key
+
+    with pytest.raises(LLMProviderError) as exc_info:
+        provider.generate_text(prompt="hello")
+
+    err_msg = str(exc_info.value)
+    assert fake_groq_key not in err_msg
+    assert "[REDACTED_SECRET]" in err_msg
+
+
+def test_get_llm_provider_wires_groq():
+    """Confirms provider factory wires Groq correctly when configured."""
+    config = AppConfig()
+    config.ai.provider = "groq"
+    config.ai.groq_api_key = "gsk_dummy_mock_key"
+    config.ai.groq_model = "llama-3.3-70b-versatile"
+    provider = get_llm_provider(config)
+    assert isinstance(provider, GroqProvider)
+    assert provider.model_name == "llama-3.3-70b-versatile"
+
+
+def test_is_llm_configured_handles_gemini_and_groq():
+    """Confirms is_llm_configured dynamically evaluates the active provider."""
+    cfg = AppConfig()
+    cfg.ai.provider = "gemini"
+    cfg.ai.gemini_api_key = "dummy_key"
+    assert cfg.is_llm_configured() is True
+
+    cfg.ai.gemini_api_key = None
+    assert cfg.is_llm_configured() is False
+
+    cfg.ai.provider = "groq"
+    cfg.ai.groq_api_key = "gsk_dummy"
+    assert cfg.is_llm_configured() is True
+
+    cfg.ai.groq_api_key = None
+    assert cfg.is_llm_configured() is False

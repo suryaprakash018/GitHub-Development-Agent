@@ -19,6 +19,7 @@ logger = setup_logger("agent.telemetry")
 # Regex patterns for sensitive tokens and credentials
 SECRET_PATTERNS = [
     re.compile(r"AIza[0-9A-Za-z-_]{20,50}"),  # Google/Gemini API key
+    re.compile(r"gsk_[A-Za-z0-9_-]{20,80}"),  # Groq API key
     re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,50}"),  # GitHub PAT
     re.compile(r"Bearer\s+[A-Za-z0-9_\-\.]+", re.IGNORECASE),  # Bearer tokens
     re.compile(

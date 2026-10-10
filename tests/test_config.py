@@ -7,7 +7,8 @@ from agent.core.exceptions import ConfigurationError, DecoupledTargetViolationEr
 from agent.utils.security import get_agent_root_path
 
 
-def test_load_default_config():
+def test_load_default_config(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
     config = load_config()
     assert config.system.name == "Autonomous AI + Data Development Agent"
     assert config.operational_mode.dry_run is True

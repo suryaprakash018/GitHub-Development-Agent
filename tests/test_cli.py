@@ -172,3 +172,32 @@ def test_cli_run_halts_on_uninitialized_git_repo(monkeypatch, tmp_path):
     )
     exit_code = cmd_run(args)
     assert exit_code == 1
+
+
+def test_cli_verify_removes_all_credential_previews(capsys, monkeypatch, tmp_path):
+    external_repo = tmp_path / "External-AI-Portfolio"
+    external_repo.mkdir()
+    (external_repo / ".git").mkdir()
+
+    groq_secret = "gsk_super_secret_unique_groq_key_9876543210"
+    gemini_secret = "AIzaSyDummyGeminiKeySecret1234567890"
+
+    monkeypatch.setenv("TARGET_REPOSITORY_PATH", str(external_repo))
+    monkeypatch.setenv("AI_PROVIDER", "groq")
+    monkeypatch.setenv("GROQ_API_KEY", groq_secret)
+    monkeypatch.setenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    monkeypatch.setenv("GEMINI_API_KEY", gemini_secret)
+
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = MagicMock()
+    monkeypatch.setattr("groq.Groq", lambda *args, **kwargs: mock_client)
+
+    args = argparse.Namespace(command="verify")
+    exit_code = cmd_verify(args)
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "[PASS] Groq API Key: Configured" in captured.out
+    assert groq_secret not in captured.out
+    assert "9876543210" not in captured.out
+    assert gemini_secret not in captured.out

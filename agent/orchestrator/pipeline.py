@@ -62,7 +62,7 @@ class AutonomousDevelopmentOrchestrator:
     ) -> None:
         self.config = config or load_config()
         self.llm = llm_provider or (
-            get_llm_provider(self.config) if self.config.ai.gemini_api_key else None
+            get_llm_provider(self.config) if self.config.is_llm_configured() else None
         )
         self.state_manager = state_manager or StateManager()
         self.roadmap_engine = roadmap_engine or RoadmapEngine()
@@ -135,9 +135,12 @@ class AutonomousDevelopmentOrchestrator:
             is_dry_run = (
                 self.config.operational_mode.dry_run if force_dry_run is None else force_dry_run
             )
+            active_keys = [
+                k for k in (self.config.ai.gemini_api_key, self.config.ai.groq_api_key) if k
+            ]
             telemetry_recorder = TelemetryRecorder(
                 runs_dir=self.state_manager.state_dir / "runs",
-                custom_secrets=[self.config.ai.gemini_api_key],
+                custom_secrets=active_keys,
             )
             telemetry_entry = TelemetryRecord(
                 duration_seconds=duration,
@@ -229,7 +232,7 @@ class AutonomousDevelopmentOrchestrator:
                 task_id=candidate.task_id,
                 status="AI_UNAVAILABLE",
                 candidate=candidate,
-                explanation="AI LLM Provider is not configured (missing GEMINI_API_KEY).",
+                explanation=f"AI LLM Provider is not configured (missing credentials for '{self.config.ai.provider}').",
             )
 
         # Step 6: Execute synthesis harness in dry-run isolation

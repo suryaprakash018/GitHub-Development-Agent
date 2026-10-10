@@ -345,14 +345,109 @@ class SystemHealthChecker:
                 details={"masked_key": masked_key, "error": err_msg},
             )
 
+    def check_groq_api_connectivity(self) -> HealthCheckItem:
+        """Safely verifies Groq API key presence and live model connectivity with secret redaction."""
+        api_key = self.config.ai.groq_api_key
+        if not api_key or not api_key.strip():
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="WARN",
+                message="GROQ_API_KEY is not configured in .env. LLM operations will be unavailable.",
+            )
+
+        target_model = self.config.ai.groq_model
+        if not target_model or not target_model.strip():
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="WARN",
+                message="GROQ_MODEL is not configured in .env or config. Please set an available Groq model.",
+            )
+
+        try:
+            from groq import (
+                APIConnectionError,
+                APITimeoutError,
+                AuthenticationError,
+                Groq,
+                NotFoundError,
+                PermissionDeniedError,
+                RateLimitError,
+            )
+
+            client = Groq(api_key=api_key, max_retries=0, timeout=10.0)
+            client.chat.completions.create(
+                model=target_model,
+                messages=[{"role": "user", "content": "ping"}],
+                max_tokens=5,
+            )
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="PASS",
+                message=f"Groq API connectivity verified successfully ({target_model})",
+                details={"model": target_model},
+            )
+        except AuthenticationError as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="FAIL",
+                message=f"Groq authentication failed (invalid or expired API key): {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+        except NotFoundError as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="FAIL",
+                message=f"Groq model '{target_model}' not found or unavailable: {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+        except PermissionDeniedError as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="FAIL",
+                message=f"Groq permission denied for model '{target_model}': {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+        except RateLimitError as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="WARN",
+                message=f"Groq rate limit or quota exceeded: {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+        except (APIConnectionError, APITimeoutError) as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="WARN",
+                message=f"Groq API connection or timeout error: {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+        except Exception as e:
+            err_msg = redact_secrets(str(e), custom_secrets=[api_key])
+            return HealthCheckItem(
+                name="Groq Cloud API",
+                status="WARN",
+                message=f"Groq API check error: {err_msg[:120]}",
+                details={"error": err_msg, "model": target_model},
+            )
+
     def run_all(self) -> SystemHealthReport:
         """Executes all system health checks and compiles consolidated report."""
+        llm_check = (
+            self.check_groq_api_connectivity()
+            if self.config.ai.provider.lower() == "groq"
+            else self.check_gemini_api_connectivity()
+        )
         checks = [
             self.check_python_environment(),
             self.check_git_cli(),
             self.check_target_repository(),
             self.check_git_remote_accessibility(),
-            self.check_gemini_api_connectivity(),
+            llm_check,
         ]
 
         has_fail = any(c.status == "FAIL" for c in checks)
